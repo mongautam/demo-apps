@@ -11,6 +11,9 @@ PUBLIC_KEY = os.environ["ATLAS_API_PUBLIC_KEY"]
 PRIVATE_KEY = os.environ["ATLAS_API_PRIVATE_KEY"]
 PROJECT_ID = os.environ["ATLAS_PROJECT_ID"]
 STREAM_INSTANCE_NAME = os.environ["STREAM_PROCESSOR_INSTANCE_NAME"]
+CLOUD_PROVIDER = os.environ["CLOUD_PROVIDER"]
+CLOUD_REGION = os.environ["CLOUD_REGION"]
+
 API_URL = f"https://cloud.mongodb.com/api/atlas/v2/groups/{PROJECT_ID}/streams"
 
 headers = {
@@ -20,7 +23,7 @@ headers = {
 
 
 data = {
-    "dataProcessRegion": {"cloudProvider": "AWS", "region": "OREGON_USA"},
+    "dataProcessRegion": {"cloudProvider": CLOUD_PROVIDER, "region": CLOUD_REGION},
     "name": STREAM_INSTANCE_NAME,
     "sampleConnections": {"solar": False},
     "streamConfig": {"tier": "SP10"},

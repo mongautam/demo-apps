@@ -12,18 +12,17 @@ from constants import *
 
 load_dotenv()
 
+
 app = Flask(__name__)
 
-MONGO_URL = os.getenv("SHOPPING_CART_MONGODB_URI")
-MONGO_DB = os.getenv("SHOPPING_CART_DB_NAME")
-MONGO_COLLECTION = os.getenv("SHOPPING_CART_COLLECTION_NAME")
+MONGO_URL = os.getenv("MONGO_URL")
+
 MONGO_USER = os.getenv("MONGO_USER")
 MONGO_PASS = os.getenv("MONGO_PASS")
 
 encoded_user = quote_plus(MONGO_USER)
 encoded_pass = quote_plus(MONGO_PASS)
 
-# Build MongoDB connection string with authentication
 AUTH_MONGO_URL = f"mongodb+srv://{encoded_user}:{encoded_pass}{MONGO_URL}"
 client = MongoClient(AUTH_MONGO_URL, serverSelectionTimeoutMS=5000)
 db = client["orderhistorydb"]
@@ -87,6 +86,4 @@ def getOrderHistory():
 
 
 if __name__ == "__main__":
-    app.run(port=5002)  # Default port
-    # app.run(ssl_context=("cert.pem", "key.pem"))
-    # app.run(host='ec2-18-237-97-57.us-west-2.compute.amazonaws.com', ssl_context=('cert.pem', 'key.pem'))
+    app.run(port=5002)
