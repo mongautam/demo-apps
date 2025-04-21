@@ -58,6 +58,8 @@ The application employs an event-driven pattern where Atlas Stream Processors me
     * The service processes the order (e.g., checks inventory) and writes status updates to the Order History database in Atlas.
 4.  **Order History:** All significant status changes from various stages are recorded in the `orderhistorydb.order_history` collection in Atlas for auditing and user visibility.
 
+![Simplified Sequence Diagram](EventFlow.png)
+
 ## Prerequisites
 
 * **MongoDB Atlas Account:** Required with a configured M0 or higher cluster.
