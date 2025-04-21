@@ -19,8 +19,8 @@ This application demonstrates a robust, real-time order fulfillment process buil
 The demo features an event-driven architecture composed of three core services:
 
 * **Shopping Cart Service:** Manages user shopping carts and generates events upon cart modifications.
-* **Order Processing Service:** Receives order requests, handles inventory checks, and initiates order creation via an HTTP endpoint.
-* **Shipment Service:** (Conceptual) Manages the shipment process and updates shipment statuses (represented by events).
+* **Order Processing Service:** Receives order requests, handles order validation checks, and initiates order creation via an HTTP endpoint.
+* **Shipment Service:**  Manages the shipment process and updates shipment statuses (represented by events).
 
 A dedicated **Shopping Cart Event Generator** script simulates user interactions. It can publish events to either a Kafka topic or a MongoDB capped collection, configurable via a command-line argument.
 
@@ -38,7 +38,6 @@ This demo serves as a valuable, practical resource for developers seeking to und
 * **Real-time Order Processing:** Simulates immediate order placement and subsequent processing via local service calls.
 * **MongoDB Atlas Stream Processor Integration:** Showcases ASP's ability to react to diverse event streams and call external HTTPS endpoints.
 * **Centralized Order History:** Provides a persistent and queryable record of all order-related status updates in MongoDB Atlas.
-* **Clear Implementation:** Offers well-structured and commented Python code for easy understanding and adaptation.
 * **Practical Use Case:** Presents a tangible and relevant example of real-time order fulfillment bridging cloud and local development.
 
 ## Architecture
@@ -164,6 +163,7 @@ Follow these steps to run the demo application:
     ```bash
     export $(grep -v '^#' .env | xargs)
     # Or use: set -a; source .env; set +a
+    # Or . ./.env 
     ```
     *Verify a few variables were set:*
     ```bash
@@ -203,9 +203,7 @@ Follow these steps to run the demo application:
     python create_stream_processors.py
     ```
     This script defines the stream processing logic. After running the script, **go to the Atlas UI** -> Stream Processing -> Your Instance -> Processors tab:
-    * **Start** the `shoppingCartEventsFromMongoDBStreamProcessor`.
-    * **Start** the `orderHistoryFromMongoDBStreamProcessor`.
-    * **Do NOT start** `shoppingCartEventsFromKafkaStreamProcessor` yet, unless you only intend to test with Kafka initially.
+    * **Start** all except `shoppingCartEventsFromKafkaStreamProcessor` unless you  intend to test with Kafka initially. In that case, start all.
 
 8.  **Run Event Generator (MongoDB Source):**
     Simulate shopping cart events being written to the capped collection:
