@@ -57,13 +57,76 @@ def create_cluster(project_id, pub_key, pri_key):
     print()
     raise Exception("Cluster creation timed out")
 
-def get_mongo_connection_string(project_id, cluster_name, public_key, private_key):
-    """Fetch the connection string for a cluster from the Atlas API."""
-    url = f"https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/flexClusters/{cluster_name}"
+def get_cluster_connection_info(project_id, cluster_name, public_key, private_key):
+    """
+    Fetch connection string, provider, and region for a cluster from Atlas API.
+    Tries flexClusters API first, falls back to /clusters API if not found.
+    Returns (connection_string, provider, region)
+    """
+    base_url = "https://cloud.mongodb.com/api/atlas/v2"
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/vnd.atlas.2024-11-23+json",
     }
-    resp = requests.get(url, auth=HTTPDigestAuth(public_key, private_key), headers=headers)
-    resp.raise_for_status()
-    return resp.json()["connectionStrings"]["standardSrv"]
+    flex_url = f"{base_url}/groups/{project_id}/flexClusters/{cluster_name}"
+    resp = requests.get(flex_url, auth=HTTPDigestAuth(public_key, private_key), headers=headers)
+    if resp.status_code == 404:
+        # Fallback to clusters API
+        clusters_url = f"{base_url}/groups/{project_id}/clusters/{cluster_name}"
+        resp = requests.get(clusters_url, auth=HTTPDigestAuth(public_key, private_key), headers=headers)
+        resp.raise_for_status()
+        cluster_info = resp.json()
+        provider = cluster_info.get("providerSettings", {}).get("providerName")
+        region = cluster_info.get("providerSettings", {}).get("regionName")
+        connection_string = cluster_info.get("connectionStrings", {}).get("standardSrv")
+    else:
+        resp.raise_for_status()
+        cluster_info = resp.json()
+        provider = cluster_info.get("providerSettings", {}).get("backingProviderName")
+        region = cluster_info.get("providerSettings", {}).get("regionName")
+        connection_string = cluster_info.get("connectionStrings", {}).get("standardSrv")
+    return connection_string, provider, region
+
+def list_all_clusters(project_id, pub_key, pri_key):
+    """
+    List all flexClusters and clusters in the given Atlas project.
+    Returns a list of dicts with keys: name, type (flex/standard), provider, region.
+    """
+    base_url = "https://cloud.mongodb.com/api/atlas/v2"
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/vnd.atlas.2024-11-23+json",
+    }
+    clusters = []
+    # List flexClusters
+    flex_url = f"{base_url}/groups/{project_id}/flexClusters"
+    resp = requests.get(flex_url, auth=HTTPDigestAuth(pub_key, pri_key), headers=headers)
+    if resp.status_code == 200:
+        for c in resp.json().get("results", []):
+            clusters.append({
+                "name": c["name"],
+                "type": "flex",
+                "provider": c.get("providerSettings", {}).get("backingProviderName"),
+                "region": c.get("providerSettings", {}).get("regionName"),
+            })
+    # List standard clusters
+    std_url = f"{base_url}/groups/{project_id}/clusters"
+    resp = requests.get(std_url, auth=HTTPDigestAuth(pub_key, pri_key), headers=headers)
+    if resp.status_code == 200:
+        for c in resp.json().get("results", []):
+            # Extract provider and region from replicationSpecs if available
+            provider = None
+            region = None
+            replication_specs = c.get("replicationSpecs", [])
+            if replication_specs:
+                region_configs = replication_specs[0].get("regionConfigs", [])
+                if region_configs:
+                    provider = region_configs[0].get("providerName")
+                    region = region_configs[0].get("regionName")
+            clusters.append({
+                "name": c["name"],
+                "type": "standard",
+                "provider": provider,
+                "region": region,
+            })
+    return clusters

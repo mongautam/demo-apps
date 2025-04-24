@@ -2,7 +2,7 @@
 import os
 import sys
 from pathlib import Path
-from .atlas_api import create_cluster, get_mongo_connection_string
+from .atlas_api import create_cluster
 
 ENV_FILE = ".env"
 ENV_TEMPLATE = "env"
@@ -88,29 +88,38 @@ def update_env_file(var_name, value):
         f.writelines(new_lines)
 
 def update_mongo_url_with_cluster(cluster_name):
-    """Update MONGO_URL in .env to use the real connection string from Atlas API."""
+    """Update MONGO_URL in .env to use the real connection string from Atlas API.
+    Also populate provider and region from Atlas API."""
     project_id = os.environ.get('ATLAS_PROJECT_ID')
     public_key = os.environ.get('ATLAS_API_PUBLIC_KEY')
     private_key = os.environ.get('ATLAS_API_PRIVATE_KEY')
     if project_id and public_key and private_key and cluster_name:
         try:
-            mongo_url = get_mongo_connection_string(project_id, cluster_name, public_key, private_key)
+            from .atlas_api import get_cluster_connection_info
+            mongo_url, provider, region = get_cluster_connection_info(project_id, cluster_name, public_key, private_key)
             # Remove 'mongodb+srv://' if present
-            if mongo_url.startswith('mongodb+srv://'):
+            if mongo_url and mongo_url.startswith('mongodb+srv://'):
                 mongo_url = mongo_url[len('mongodb+srv://'):]
             # Ensure it starts with '@'
-            at_index = mongo_url.find('@')
-            if at_index != -1:
-                mongo_url = '@' + mongo_url[at_index+1:]
-            else:
-                mongo_url = '@' + mongo_url
-            # Ensure it ends with the correct suffix
-            suffix = f'?retryWrites=true&w=majority&appName={cluster_name}'
-            mongo_url = mongo_url.split('?', 1)[0] + suffix
-            update_env_file('MONGO_URL', mongo_url)
-            os.environ['MONGO_URL'] = mongo_url
+            if mongo_url:
+                at_index = mongo_url.find('@')
+                if at_index != -1:
+                    mongo_url = '@' + mongo_url[at_index+1:]
+                else:
+                    mongo_url = '@' + mongo_url
+                # Ensure it ends with the correct suffix
+                suffix = f'?retryWrites=true&w=majority&appName={cluster_name}'
+                mongo_url = mongo_url.split('?', 1)[0] + suffix
+                update_env_file('MONGO_URL', mongo_url)
+                os.environ['MONGO_URL'] = mongo_url
+            if provider:
+                update_env_file('CLOUD_PROVIDER', provider)
+                os.environ['CLOUD_PROVIDER'] = provider
+            if region:
+                update_env_file('CLOUD_REGION', region)
+                os.environ['CLOUD_REGION'] = region
         except Exception as e:
-            print(f"Error: Could not fetch connection string from Atlas API: {e}")
+            print(f"Error: Could not fetch connection string or cluster info from Atlas API: {e}")
             sys.exit(1)
     else:
         print("Error: Missing Atlas credentials or cluster name, cannot update MONGO_URL.")
@@ -156,15 +165,28 @@ def prompt_for_env_vars(env_vars, only_kafka=False, only_vars=None):
                 except Exception as e:
                     print(f"Error creating cluster: {e}")
             elif choice == 'n':
+                from .atlas_api import list_all_clusters
+                clusters = list_all_clusters(
+                    env_vars['ATLAS_PROJECT_ID'],
+                    env_vars['ATLAS_API_PUBLIC_KEY'],
+                    env_vars['ATLAS_API_PRIVATE_KEY']
+                )
+                if not clusters:
+                    print("No clusters found in your Atlas project. Please create one in the Atlas UI first.")
+                    sys.exit(1)
+                print("\nAvailable clusters:")
+                for idx, c in enumerate(clusters, 1):
+                    print(f"  {idx}. {c['name']} (type: {c['type']}, provider: {c['provider']}, region: {c['region']})")
                 while True:
-                    cluster_name = input("Enter your existing Atlas cluster name: ").strip()
-                    if cluster_name:
+                    sel = input(f"Select a cluster by number (1-{len(clusters)}): ").strip()
+                    if sel.isdigit() and 1 <= int(sel) <= len(clusters):
+                        cluster_name = clusters[int(sel)-1]['name']
                         update_env_file('ATLAS_CLUSTER_NAME', cluster_name)
                         env_vars['ATLAS_CLUSTER_NAME'] = cluster_name
                         os.environ['ATLAS_CLUSTER_NAME'] = cluster_name
                         update_mongo_url_with_cluster(cluster_name)
                         break
-                    print("Error: Empty value not allowed.")
+                    print("Invalid selection. Please enter a valid number.")
                 break
             else:
                 print("Please enter 'y' or 'n'.")
