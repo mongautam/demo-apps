@@ -1,32 +1,30 @@
 """Environment setup and configuration functions."""
 import os
 import sys
-import subprocess
-import importlib.util
 from pathlib import Path
+from .atlas_api import create_cluster, get_mongo_connection_string
 
 ENV_FILE = ".env"
 ENV_TEMPLATE = "env"
 REQUIRED_PACKAGES = ["pymongo", "requests", "flask"]
 
 ENV_VARS = {
-    "MONGO_USER": "MongoDB Atlas database user (e.g. order_fulfillment_user)",
-    "MONGO_PASS": "MongoDB Atlas database password (e.g. strongpassword123)",
-    "ATLAS_PROJECT_ID": "Atlas project ID (see Atlas dashboard)",
-    "ATLAS_CLUSTER_NAME": "Atlas cluster name (see Atlas dashboard)",
-    "MONGO_URL": "Standard MongoDB connection string (e.g. mongodb+srv://...)",
-    "MONGO_FULL_URL": "Full MongoDB connection string, including credentials",
-    "ATLAS_API_PUBLIC_KEY": "Atlas API public key (see Atlas dashboard)",
-    "ATLAS_API_PRIVATE_KEY": "Atlas API private key (see Atlas dashboard)",
-    "STREAM_PROCESSOR_INSTANCE_NAME": "Unique name for stream processor instance",
-    "ATLAS_STREAM_PROCESSOR_URL": "URL for Atlas Stream Processing endpoint",
-    "ORDER_SERVICE_URL": "Order service endpoint",
-    "KAFKA_BOOTSTRAP_SERVERS": "Kafka bootstrap servers",
-    "KAFKA_USERNAME": "Kafka username (if SASL/PLAIN auth is used)",
-    "KAFKA_PASSWORD": "Kafka password",
-    "KAFKA_SHOPPING_CART_TOPIC": "Kafka topic for shopping cart events",
-    "SHOPPING_CART_DB_NAME": "Shopping cart MongoDB database name",
-    "SHOPPING_CART_COLLECTION_NAME": "Shopping cart MongoDB collection name",
+    "MONGO_USER": {"desc": "MongoDB Atlas database user (e.g. order_fulfillment_user)", "prompt": True},
+    "MONGO_PASS": {"desc": "MongoDB Atlas database password (e.g. strongpassword123)", "prompt": True},
+    "ATLAS_PROJECT_ID": {"desc": "Atlas project ID (see Atlas dashboard)", "prompt": True},
+    "ATLAS_CLUSTER_NAME": {"desc": "Atlas cluster name (see Atlas dashboard)", "prompt": False},
+    "MONGO_URL": {"desc": "Standard MongoDB connection string (e.g. mongodb+srv://...)", "prompt": False},
+    "ATLAS_API_PUBLIC_KEY": {"desc": "Atlas API public key (see Atlas dashboard)", "prompt": True},
+    "ATLAS_API_PRIVATE_KEY": {"desc": "Atlas API private key (see Atlas dashboard)", "prompt": True},
+    "STREAM_PROCESSOR_INSTANCE_NAME": {"desc": "Unique name for stream processor instance", "prompt": True},
+    "ATLAS_STREAM_PROCESSOR_URL": {"desc": "URL for Atlas Stream Processing endpoint", "prompt": False},
+    "ORDER_SERVICE_URL": {"desc": "Order service endpoint", "prompt": False},
+    "KAFKA_BOOTSTRAP_SERVERS": {"desc": "Kafka bootstrap servers", "prompt": False},
+    "KAFKA_USERNAME": {"desc": "Kafka username (if SASL/PLAIN auth is used)", "prompt": True},
+    "KAFKA_PASSWORD": {"desc": "Kafka password", "prompt": True},
+    "KAFKA_SHOPPING_CART_TOPIC": {"desc": "Kafka topic for shopping cart events", "prompt": False},
+    "SHOPPING_CART_DB_NAME": {"desc": "Shopping cart MongoDB database name", "prompt": False},
+    "SHOPPING_CART_COLLECTION_NAME": {"desc": "Shopping cart MongoDB collection name", "prompt": False},
 }
 
 KAFKA_ENV_KEYS = [
@@ -36,27 +34,18 @@ KAFKA_ENV_KEYS = [
     "KAFKA_SHOPPING_CART_TOPIC"
 ]
 
-def check_dependencies():
-    """Check if required packages are installed."""
-    missing = []
-    for package in REQUIRED_PACKAGES:
-        if importlib.util.find_spec(package) is None:
-            missing.append(package)
-    
-    if missing:
-        print("Error: Missing required dependencies:")
-        for pkg in missing:
-            print(f"  - {pkg}")
-        print("\nPlease install dependencies before running this script:")
-        print("pip install -r requirements.txt")
-        sys.exit(1)
-
 def setup_environment():
-    """Set up the environment (env file, variables, venv)."""
+    """Set up the environment (env file, variables)."""
     if not Path(ENV_FILE).exists():
         if Path(ENV_TEMPLATE).exists():
-            print(f"Copying {ENV_TEMPLATE} to {ENV_FILE}...")
-            subprocess.run(["cp", ENV_TEMPLATE, ENV_FILE])
+            print(f"Copying {ENV_TEMPLATE} to {ENV_FILE} with empty values...")
+            with open(ENV_TEMPLATE) as src, open(ENV_FILE, 'w') as dst:
+                for line in src:
+                    if line.strip() == '' or line.strip().startswith('#'):
+                        dst.write(line)
+                    else:
+                        var = line.split('=')[0].strip()
+                        dst.write(f'{var}=""\n')
         else:
             print(f"Missing both {ENV_FILE} and {ENV_TEMPLATE}. Please provide one.")
             sys.exit(1)
@@ -72,49 +61,131 @@ def setup_environment():
                     continue
     
     os.environ.update(env_vars)
-    check_venv()
-    check_dependencies()
     return env_vars
 
-def check_venv():
-    """Check and setup virtual environment if needed."""
-    if sys.prefix == sys.base_prefix:
-        venv_path = Path("venv/bin/activate")
-        if venv_path.exists():
-            subprocess.run(["bash", "-c", "source venv/bin/activate && exec python3 " + " ".join(sys.argv)])
-            sys.exit(0)
+def update_env_file(var_name, value):
+    """Update a single variable in the .env file, preserving order and comments."""
+    lines = []
+    found = False
+    if Path(ENV_FILE).exists():
+        with open(ENV_FILE) as f:
+            lines = f.readlines()
+    new_lines = []
+    for line in lines:
+        if line.strip().startswith(f"{var_name}="):
+            # Preserve the original line ending (\n or not)
+            line_ending = '\n' if line.endswith('\n') else ''
+            new_lines.append(f'{var_name}="{value}"{line_ending}')
+            found = True
         else:
-            print("Virtual environment not found. Creating...")
-            subprocess.run([sys.executable, "-m", "venv", "venv"])
-            print("Please activate the virtual environment and install dependencies:")
-            print("source venv/bin/activate")
-            print("pip install -r requirements.txt")
-            print("Then rerun this script.")
-            sys.exit(1)
+            new_lines.append(line)
+    if not found:
+        # Append at the end if not found, with a newline if needed
+        if new_lines and not new_lines[-1].endswith('\n'):
+            new_lines[-1] = new_lines[-1] + '\n'
+        new_lines.append(f'{var_name}="{value}"\n')
+    with open(ENV_FILE, "w") as f:
+        f.writelines(new_lines)
 
-def prompt_for_env_vars(env_vars, only_kafka=False):
-    """Prompt user for missing environment variables and save to .env file."""
-    updated = False
-    vars_to_prompt = KAFKA_ENV_KEYS if only_kafka else list(ENV_VARS.keys())
-    
-    for var in vars_to_prompt:
+def update_mongo_url_with_cluster(cluster_name):
+    """Update MONGO_URL in .env to use the real connection string from Atlas API."""
+    project_id = os.environ.get('ATLAS_PROJECT_ID')
+    public_key = os.environ.get('ATLAS_API_PUBLIC_KEY')
+    private_key = os.environ.get('ATLAS_API_PRIVATE_KEY')
+    if project_id and public_key and private_key and cluster_name:
+        try:
+            mongo_url = get_mongo_connection_string(project_id, cluster_name, public_key, private_key)
+            # Remove 'mongodb+srv://' if present
+            if mongo_url.startswith('mongodb+srv://'):
+                mongo_url = mongo_url[len('mongodb+srv://'):]
+            # Ensure it starts with '@'
+            at_index = mongo_url.find('@')
+            if at_index != -1:
+                mongo_url = '@' + mongo_url[at_index+1:]
+            else:
+                mongo_url = '@' + mongo_url
+            # Ensure it ends with the correct suffix
+            suffix = f'?retryWrites=true&w=majority&appName={cluster_name}'
+            mongo_url = mongo_url.split('?', 1)[0] + suffix
+            update_env_file('MONGO_URL', mongo_url)
+            os.environ['MONGO_URL'] = mongo_url
+        except Exception as e:
+            print(f"Error: Could not fetch connection string from Atlas API: {e}")
+            sys.exit(1)
+    else:
+        print("Error: Missing Atlas credentials or cluster name, cannot update MONGO_URL.")
+        sys.exit(1)
+
+def prompt_for_env_vars(env_vars, only_kafka=False, only_vars=None):
+    """Prompt user for required environment variables and save to .env file."""
+    # Only prompt for vars with prompt=True
+    prompt_vars = [k for k, v in ENV_VARS.items() if v.get("prompt")]
+    # Always prompt for API keys and project id first
+    for var in ["ATLAS_API_PUBLIC_KEY", "ATLAS_API_PRIVATE_KEY", "ATLAS_PROJECT_ID"]:
+        if not env_vars.get(var):
+            while True:
+                print(f"\nMissing value for {var}.")
+                print(f"Hint: {ENV_VARS[var]['desc']}")
+                value = input(f"Enter value for {var}: ").strip()
+                if value:
+                    env_vars[var] = value
+                    os.environ[var] = value
+                    update_env_file(var, value)
+                    break
+                print("Error: Empty value not allowed.")
+    # Cluster name logic (populate ATLAS_CLUSTER_NAME and MONGO_URL)
+    cluster_name = env_vars.get('ATLAS_CLUSTER_NAME')
+    if not cluster_name:
+        while True:
+            print("\nNo Atlas cluster name found.")
+            print("Would you like the driver to create the cluster? This will use your Atlas API credentials to provision a new flex-tier cluster in your project. (y/n): ", end='')
+            choice = input().strip().lower()
+            if choice == 'y':
+                try:
+                    cluster_name = create_cluster(
+                        env_vars['ATLAS_PROJECT_ID'],
+                        env_vars['ATLAS_API_PUBLIC_KEY'],
+                        env_vars['ATLAS_API_PRIVATE_KEY']
+                    )
+                    print(f"Created cluster: {cluster_name}")
+                    update_env_file('ATLAS_CLUSTER_NAME', cluster_name)
+                    env_vars['ATLAS_CLUSTER_NAME'] = cluster_name
+                    os.environ['ATLAS_CLUSTER_NAME'] = cluster_name
+                    update_mongo_url_with_cluster(cluster_name)
+                    break
+                except Exception as e:
+                    print(f"Error creating cluster: {e}")
+            elif choice == 'n':
+                while True:
+                    cluster_name = input("Enter your existing Atlas cluster name: ").strip()
+                    if cluster_name:
+                        update_env_file('ATLAS_CLUSTER_NAME', cluster_name)
+                        env_vars['ATLAS_CLUSTER_NAME'] = cluster_name
+                        os.environ['ATLAS_CLUSTER_NAME'] = cluster_name
+                        update_mongo_url_with_cluster(cluster_name)
+                        break
+                    print("Error: Empty value not allowed.")
+                break
+            else:
+                print("Please enter 'y' or 'n'.")
+    else:
+        # If already populated, always update MONGO_URL
+        update_mongo_url_with_cluster(cluster_name)
+    # Prompt for the rest of the required vars (excluding those already handled)
+    for var in prompt_vars:
+        if var in ["ATLAS_API_PUBLIC_KEY", "ATLAS_API_PRIVATE_KEY", "ATLAS_PROJECT_ID"]:
+            continue
         if var not in env_vars or not env_vars[var] or env_vars[var].strip() == "":
             while True:
                 print(f"\nMissing value for {var}.")
-                hint = ENV_VARS.get(var)
+                hint = ENV_VARS[var]["desc"]
                 if hint:
                     print(f"Hint: {hint}")
                 value = input(f"Enter value for {var}: ").strip()
-                if value and not value.isspace():  # Check for non-empty and non-whitespace values
+                if value and not value.isspace():
                     env_vars[var] = value
-                    updated = True
                     os.environ[var] = value
+                    update_env_file(var, value)
+                    print(f"Updated {ENV_FILE} with new value for {var}")
                     break
                 print("Error: Empty or whitespace-only value not allowed. Please enter a valid value.")
-    
-    if updated:
-        with open(ENV_FILE, "w") as f:
-            for k, v in env_vars.items():
-                if v:  # Only write non-empty values
-                    f.write(f'{k}="{v}"\n')
-        print(f"Updated {ENV_FILE} with provided values.")
