@@ -2,7 +2,7 @@
 import os
 import sys
 from pathlib import Path
-from .atlas_api import create_cluster
+from .atlas_api import create_cluster, list_all_clusters
 
 ENV_FILE = ".env"
 ENV_TEMPLATE = "env"
@@ -97,33 +97,35 @@ def update_mongo_url_with_cluster(cluster_name):
         try:
             from .atlas_api import get_cluster_connection_info
             mongo_url, provider, region = get_cluster_connection_info(project_id, cluster_name, public_key, private_key)
-            # Remove 'mongodb+srv://' if present
-            if mongo_url and mongo_url.startswith('mongodb+srv://'):
-                mongo_url = mongo_url[len('mongodb+srv://'):]
-            # Ensure it starts with '@'
-            if mongo_url:
-                at_index = mongo_url.find('@')
-                if at_index != -1:
-                    mongo_url = '@' + mongo_url[at_index+1:]
-                else:
-                    mongo_url = '@' + mongo_url
-                # Ensure it ends with the correct suffix
-                suffix = f'?retryWrites=true&w=majority&appName={cluster_name}'
-                mongo_url = mongo_url.split('?', 1)[0] + suffix
-                update_env_file('MONGO_URL', mongo_url)
-                os.environ['MONGO_URL'] = mongo_url
-            if provider:
-                update_env_file('CLOUD_PROVIDER', provider)
-                os.environ['CLOUD_PROVIDER'] = provider
-            if region:
-                update_env_file('CLOUD_REGION', region)
-                os.environ['CLOUD_REGION'] = region
+            set_connection_env_vars(cluster_name, mongo_url, provider, region)
         except Exception as e:
             print(f"Error: Could not fetch connection string or cluster info from Atlas API: {e}")
             sys.exit(1)
     else:
         print("Error: Missing Atlas credentials or cluster name, cannot update MONGO_URL.")
         sys.exit(1)
+
+def set_connection_env_vars(cluster_name, connection_string, provider, region):
+    """Helper to update MONGO_URL, CLOUD_PROVIDER, and CLOUD_REGION from cluster info."""
+    if connection_string:
+        mongo_url = connection_string
+        if mongo_url.startswith('mongodb+srv://'):
+            mongo_url = mongo_url[len('mongodb+srv://'):]
+        at_index = mongo_url.find('@')
+        if at_index != -1:
+            mongo_url = '@' + mongo_url[at_index+1:]
+        else:
+            mongo_url = '@' + mongo_url
+        suffix = f'?retryWrites=true&w=majority&appName={cluster_name}'
+        mongo_url = mongo_url.split('?', 1)[0] + suffix
+        update_env_file('MONGO_URL', mongo_url)
+        os.environ['MONGO_URL'] = mongo_url
+    if provider:
+        update_env_file('CLOUD_PROVIDER', provider)
+        os.environ['CLOUD_PROVIDER'] = provider
+    if region:
+        update_env_file('CLOUD_REGION', region)
+        os.environ['CLOUD_REGION'] = region
 
 def set_env_var(var, value, env_vars):
     env_vars[var] = value
@@ -157,12 +159,19 @@ def select_or_create_cluster(env_vars):
                 )
                 print(f"Created cluster: {cluster_name}")
                 set_env_var('ATLAS_CLUSTER_NAME', cluster_name, env_vars)
-                update_mongo_url_with_cluster(cluster_name)
+                # Get connection info and set env vars
+                from .atlas_api import get_cluster_connection_info
+                connection_string, provider, region = get_cluster_connection_info(
+                    env_vars['ATLAS_PROJECT_ID'],
+                    cluster_name,
+                    env_vars['ATLAS_API_PUBLIC_KEY'],
+                    env_vars['ATLAS_API_PRIVATE_KEY']
+                )
+                set_connection_env_vars(cluster_name, connection_string, provider, region)
                 return
             except Exception as e:
                 print(f"Error creating cluster: {e}")
         elif choice == 'n':
-            from .atlas_api import list_all_clusters
             clusters = list_all_clusters(
                 env_vars['ATLAS_PROJECT_ID'],
                 env_vars['ATLAS_API_PUBLIC_KEY'],
@@ -177,9 +186,23 @@ def select_or_create_cluster(env_vars):
             while True:
                 sel = input(f"Select a cluster by number (1-{len(clusters)}): ").strip()
                 if sel.isdigit() and 1 <= int(sel) <= len(clusters):
-                    cluster_name = clusters[int(sel)-1]['name']
+                    cluster = clusters[int(sel)-1]
+                    cluster_name = cluster['name']
                     set_env_var('ATLAS_CLUSTER_NAME', cluster_name, env_vars)
-                    update_mongo_url_with_cluster(cluster_name)
+                    connection_string = cluster.get('connection_string')
+                    provider = cluster.get('provider')
+                    region = cluster.get('region')
+                    if connection_string:
+                        set_connection_env_vars(cluster_name, connection_string, provider, region)
+                    else:
+                        from .atlas_api import get_cluster_connection_info
+                        connection_string, provider, region = get_cluster_connection_info(
+                            env_vars['ATLAS_PROJECT_ID'],
+                            cluster_name,
+                            env_vars['ATLAS_API_PUBLIC_KEY'],
+                            env_vars['ATLAS_API_PRIVATE_KEY']
+                        )
+                        set_connection_env_vars(cluster_name, connection_string, provider, region)
                     return
                 print("Invalid selection. Please enter a valid number.")
             break

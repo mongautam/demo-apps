@@ -98,7 +98,7 @@ def get_cluster_connection_info(project_id, cluster_name, public_key, private_ke
 def list_all_clusters(project_id, pub_key, pri_key):
     """
     List all flexClusters and clusters in the given Atlas project.
-    Returns a list of dicts with keys: name, type (flex/standard), provider, region.
+    Returns a list of dicts with keys: name, type (flex/standard), provider, region, connection_string.
     """
     base_url = "https://cloud.mongodb.com/api/atlas/v2"
     headers = {
@@ -116,6 +116,7 @@ def list_all_clusters(project_id, pub_key, pri_key):
                 "type": "flex",
                 "provider": c.get("providerSettings", {}).get("backingProviderName"),
                 "region": c.get("providerSettings", {}).get("regionName"),
+                "connection_string": c.get("connectionStrings", {}).get("standardSrv"),
             })
     # List standard clusters
     std_url = f"{base_url}/groups/{project_id}/clusters"
@@ -136,5 +137,6 @@ def list_all_clusters(project_id, pub_key, pri_key):
                 "type": "standard",
                 "provider": provider,
                 "region": region,
+                "connection_string": c.get("connectionStrings", {}).get("standardSrv"),
             })
     return clusters
