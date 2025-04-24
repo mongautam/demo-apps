@@ -60,7 +60,7 @@ def create_cluster(project_id, pub_key, pri_key):
 def get_cluster_connection_info(project_id, cluster_name, public_key, private_key):
     """
     Fetch connection string, provider, and region for a cluster from Atlas API.
-    Tries flexClusters API first, falls back to /clusters API if not found.
+    Tries flexClusters API first, falls back to /clusters API if not found or missing connection string.
     Returns (connection_string, provider, region)
     """
     base_url = "https://cloud.mongodb.com/api/atlas/v2"
@@ -70,8 +70,22 @@ def get_cluster_connection_info(project_id, cluster_name, public_key, private_ke
     }
     flex_url = f"{base_url}/groups/{project_id}/flexClusters/{cluster_name}"
     resp = requests.get(flex_url, auth=HTTPDigestAuth(public_key, private_key), headers=headers)
-    if resp.status_code == 404:
-        # Fallback to clusters API
+    fallback = False
+
+    if resp.status_code == 400:
+        fallback = True
+    else:
+        resp.raise_for_status()
+        cluster_info = resp.json()
+        provider = cluster_info.get("providerSettings", {}).get("backingProviderName")
+        region = cluster_info.get("providerSettings", {}).get("regionName")
+        connection_string = cluster_info.get("connectionStrings", {}).get("standardSrv")
+        if connection_string:
+            return connection_string, provider, region
+        else:
+            fallback = True
+
+    if fallback:
         clusters_url = f"{base_url}/groups/{project_id}/clusters/{cluster_name}"
         resp = requests.get(clusters_url, auth=HTTPDigestAuth(public_key, private_key), headers=headers)
         resp.raise_for_status()
@@ -79,13 +93,7 @@ def get_cluster_connection_info(project_id, cluster_name, public_key, private_ke
         provider = cluster_info.get("providerSettings", {}).get("providerName")
         region = cluster_info.get("providerSettings", {}).get("regionName")
         connection_string = cluster_info.get("connectionStrings", {}).get("standardSrv")
-    else:
-        resp.raise_for_status()
-        cluster_info = resp.json()
-        provider = cluster_info.get("providerSettings", {}).get("backingProviderName")
-        region = cluster_info.get("providerSettings", {}).get("regionName")
-        connection_string = cluster_info.get("connectionStrings", {}).get("standardSrv")
-    return connection_string, provider, region
+        return connection_string, provider, region
 
 def list_all_clusters(project_id, pub_key, pri_key):
     """

@@ -125,6 +125,67 @@ def update_mongo_url_with_cluster(cluster_name):
         print("Error: Missing Atlas credentials or cluster name, cannot update MONGO_URL.")
         sys.exit(1)
 
+def set_env_var(var, value, env_vars):
+    env_vars[var] = value
+    os.environ[var] = value
+    update_env_file(var, value)
+
+def prompt_and_set_env_var(var, desc, env_vars):
+    """Prompt user for a variable, update env and .env file."""
+    while True:
+        print(f"\nMissing value for {var}.")
+        if desc:
+            print(f"Hint: {desc}")
+        value = input(f"Enter value for {var}: ").strip()
+        if value and not value.isspace():
+            set_env_var(var, value, env_vars)
+            print(f"Updated {ENV_FILE} with new value for {var}")
+            break
+        print("Error: Empty or whitespace-only value not allowed. Please enter a valid value.")
+
+def select_or_create_cluster(env_vars):
+    while True:
+        print("\nNo Atlas cluster name found.")
+        print("Would you like the driver to create the cluster? ... (y/n): ", end='')
+        choice = input().strip().lower()
+        if choice == 'y':
+            try:
+                cluster_name = create_cluster(
+                    env_vars['ATLAS_PROJECT_ID'],
+                    env_vars['ATLAS_API_PUBLIC_KEY'],
+                    env_vars['ATLAS_API_PRIVATE_KEY']
+                )
+                print(f"Created cluster: {cluster_name}")
+                set_env_var('ATLAS_CLUSTER_NAME', cluster_name, env_vars)
+                update_mongo_url_with_cluster(cluster_name)
+                return
+            except Exception as e:
+                print(f"Error creating cluster: {e}")
+        elif choice == 'n':
+            from .atlas_api import list_all_clusters
+            clusters = list_all_clusters(
+                env_vars['ATLAS_PROJECT_ID'],
+                env_vars['ATLAS_API_PUBLIC_KEY'],
+                env_vars['ATLAS_API_PRIVATE_KEY']
+            )
+            if not clusters:
+                print("No clusters found in your Atlas project. Please create one in the Atlas UI first.")
+                sys.exit(1)
+            print("\nAvailable clusters:")
+            for idx, c in enumerate(clusters, 1):
+                print(f"  {idx}. {c['name']} (type: {c['type']}, provider: {c['provider']}, region: {c['region']})")
+            while True:
+                sel = input(f"Select a cluster by number (1-{len(clusters)}): ").strip()
+                if sel.isdigit() and 1 <= int(sel) <= len(clusters):
+                    cluster_name = clusters[int(sel)-1]['name']
+                    set_env_var('ATLAS_CLUSTER_NAME', cluster_name, env_vars)
+                    update_mongo_url_with_cluster(cluster_name)
+                    return
+                print("Invalid selection. Please enter a valid number.")
+            break
+        else:
+            print("Please enter 'y' or 'n'.")
+
 def prompt_for_env_vars(env_vars, only_kafka=False, only_vars=None):
     """Prompt user for required environment variables and save to .env file."""
     # Only prompt for vars with prompt=True
@@ -132,64 +193,11 @@ def prompt_for_env_vars(env_vars, only_kafka=False, only_vars=None):
     # Always prompt for API keys and project id first
     for var in ["ATLAS_API_PUBLIC_KEY", "ATLAS_API_PRIVATE_KEY", "ATLAS_PROJECT_ID"]:
         if not env_vars.get(var):
-            while True:
-                print(f"\nMissing value for {var}.")
-                print(f"Hint: {ENV_VARS[var]['desc']}")
-                value = input(f"Enter value for {var}: ").strip()
-                if value:
-                    env_vars[var] = value
-                    os.environ[var] = value
-                    update_env_file(var, value)
-                    break
-                print("Error: Empty value not allowed.")
+            prompt_and_set_env_var(var, ENV_VARS[var]['desc'], env_vars)
     # Cluster name logic (populate ATLAS_CLUSTER_NAME and MONGO_URL)
     cluster_name = env_vars.get('ATLAS_CLUSTER_NAME')
     if not cluster_name:
-        while True:
-            print("\nNo Atlas cluster name found.")
-            print("Would you like the driver to create the cluster? This will use your Atlas API credentials to provision a new flex-tier cluster in your project. (y/n): ", end='')
-            choice = input().strip().lower()
-            if choice == 'y':
-                try:
-                    cluster_name = create_cluster(
-                        env_vars['ATLAS_PROJECT_ID'],
-                        env_vars['ATLAS_API_PUBLIC_KEY'],
-                        env_vars['ATLAS_API_PRIVATE_KEY']
-                    )
-                    print(f"Created cluster: {cluster_name}")
-                    update_env_file('ATLAS_CLUSTER_NAME', cluster_name)
-                    env_vars['ATLAS_CLUSTER_NAME'] = cluster_name
-                    os.environ['ATLAS_CLUSTER_NAME'] = cluster_name
-                    update_mongo_url_with_cluster(cluster_name)
-                    break
-                except Exception as e:
-                    print(f"Error creating cluster: {e}")
-            elif choice == 'n':
-                from .atlas_api import list_all_clusters
-                clusters = list_all_clusters(
-                    env_vars['ATLAS_PROJECT_ID'],
-                    env_vars['ATLAS_API_PUBLIC_KEY'],
-                    env_vars['ATLAS_API_PRIVATE_KEY']
-                )
-                if not clusters:
-                    print("No clusters found in your Atlas project. Please create one in the Atlas UI first.")
-                    sys.exit(1)
-                print("\nAvailable clusters:")
-                for idx, c in enumerate(clusters, 1):
-                    print(f"  {idx}. {c['name']} (type: {c['type']}, provider: {c['provider']}, region: {c['region']})")
-                while True:
-                    sel = input(f"Select a cluster by number (1-{len(clusters)}): ").strip()
-                    if sel.isdigit() and 1 <= int(sel) <= len(clusters):
-                        cluster_name = clusters[int(sel)-1]['name']
-                        update_env_file('ATLAS_CLUSTER_NAME', cluster_name)
-                        env_vars['ATLAS_CLUSTER_NAME'] = cluster_name
-                        os.environ['ATLAS_CLUSTER_NAME'] = cluster_name
-                        update_mongo_url_with_cluster(cluster_name)
-                        break
-                    print("Invalid selection. Please enter a valid number.")
-                break
-            else:
-                print("Please enter 'y' or 'n'.")
+        select_or_create_cluster(env_vars)
     else:
         # If already populated, always update MONGO_URL
         update_mongo_url_with_cluster(cluster_name)
@@ -198,16 +206,4 @@ def prompt_for_env_vars(env_vars, only_kafka=False, only_vars=None):
         if var in ["ATLAS_API_PUBLIC_KEY", "ATLAS_API_PRIVATE_KEY", "ATLAS_PROJECT_ID"]:
             continue
         if var not in env_vars or not env_vars[var] or env_vars[var].strip() == "":
-            while True:
-                print(f"\nMissing value for {var}.")
-                hint = ENV_VARS[var]["desc"]
-                if hint:
-                    print(f"Hint: {hint}")
-                value = input(f"Enter value for {var}: ").strip()
-                if value and not value.isspace():
-                    env_vars[var] = value
-                    os.environ[var] = value
-                    update_env_file(var, value)
-                    print(f"Updated {ENV_FILE} with new value for {var}")
-                    break
-                print("Error: Empty or whitespace-only value not allowed. Please enter a valid value.")
+            prompt_and_set_env_var(var, ENV_VARS[var]["desc"], env_vars)
