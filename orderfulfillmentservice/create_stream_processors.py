@@ -2,6 +2,7 @@ import pprint
 from requests.auth import HTTPDigestAuth
 import requests
 import os
+import sys
 from constants import *
 from dotenv import load_dotenv
 
@@ -25,7 +26,7 @@ stream_processors = [
         "pipeline": [
             {
                 "$source": {
-                    "connectionName": "shoppingCartSource",
+                    "connectionName": "mongoDBSink",
                     "db": "shoppingcartdb",
                     "coll": "shoppingcart",
                     "config": {"fullDocument": "whenAvailable"},
@@ -49,7 +50,7 @@ stream_processors = [
             {
                 "$merge": {
                     "into": {
-                        "connectionName": "orderSink",
+                        "connectionName": "mongoDBSink",
                         "db": "orderdb",
                         "coll": "orders",
                     },
@@ -64,7 +65,7 @@ stream_processors = [
         "pipeline": [
             {
                 "$source": {
-                    "connectionName": "orderSink",
+                    "connectionName": "mongoDBSink",
                     "db": "orderdb",
                     "coll": "orders",
                     "config": {"fullDocument": "whenAvailable"},
@@ -78,7 +79,7 @@ stream_processors = [
             },
             {
                 "$https": {
-                    "connectionName": "orderValidationService",
+                    "connectionName": "flaskService",
                     "path": "/processOrder",
                     "method": "POST",
                     "as": "message",
@@ -107,7 +108,7 @@ stream_processors = [
             {
                 "$merge": {
                     "into": {
-                        "connectionName": "validatedOrderSink",
+                        "connectionName": "mongoDBSink",
                         "db": "orderdb",
                         "coll": "$destination_collection",
                     }
@@ -119,7 +120,7 @@ stream_processors = [
         "name": "orderToShipmentStreamProcessor",
         "options": {
             "dlq": {
-                "connectionName": "dlqSink",
+                "connectionName": "mongoDBSink",
                 "db": "dlqDb",
                 "coll": "dlqColl",
             }
@@ -127,7 +128,7 @@ stream_processors = [
         "pipeline": [
             {
                 "$source": {
-                    "connectionName": "validatedOrderSink",
+                    "connectionName": "mongoDBSink",
                     "db": "orderdb",
                     "coll": "fulfilled_orders",
                     "config": {"fullDocument": "whenAvailable"},
@@ -140,7 +141,7 @@ stream_processors = [
             },
             {
                 "$https": {
-                    "connectionName": "orderShipmentService",
+                    "connectionName": "flaskService",
                     "path": "/shipOrder",
                     "method": "POST",
                     "as": "message",
@@ -168,7 +169,7 @@ stream_processors = [
             {
                 "$merge": {
                     "into": {
-                        "connectionName": "shipmentSink",
+                        "connectionName": "mongoDBSink",
                         "db": "shipmentdb",
                         "coll": "$destination_collection",
                     }
@@ -181,7 +182,7 @@ stream_processors = [
         "pipeline": [
             {
                 "$source": {
-                    "connectionName": "shoppingCartSource",
+                    "connectionName": "mongoDBSink",
                     "db": "shoppingcartdb",
                     "config": {"fullDocument": "whenAvailable"},
                 }
@@ -216,7 +217,7 @@ stream_processors = [
             {
                 "$merge": {
                     "into": {
-                        "connectionName": "orderHistorySink",
+                        "connectionName": "mongoDBSink",
                         "db": "orderhistorydb",
                         "coll": "order_history",
                     },
@@ -231,7 +232,7 @@ stream_processors = [
         "pipeline": [
             {
                 "$source": {
-                    "connectionName": "validatedOrderSink",
+                    "connectionName": "mongoDBSink",
                     "db": "orderdb",
                     "coll": "fulfilled_orders",
                     "config": {"fullDocument": "whenAvailable"},
@@ -261,7 +262,7 @@ stream_processors = [
             {
                 "$merge": {
                     "into": {
-                        "connectionName": "orderHistorySink",
+                        "connectionName": "mongoDBSink",
                         "db": "orderhistorydb",
                         "coll": "order_history",
                     },
@@ -275,7 +276,7 @@ stream_processors = [
         "pipeline": [
             {
                 "$source": {
-                    "connectionName": "invalidOrderSink",
+                    "connectionName": "mongoDBSink",
                     "db": "orderdb",
                     "coll": "invalid_orders",
                     "config": {"fullDocument": "whenAvailable"},
@@ -305,7 +306,7 @@ stream_processors = [
             {
                 "$merge": {
                     "into": {
-                        "connectionName": "orderHistorySink",
+                        "connectionName": "mongoDBSink",
                         "db": "orderhistorydb",
                         "coll": "order_history",
                     },
@@ -319,7 +320,7 @@ stream_processors = [
         "pipeline": [
             {
                 "$source": {
-                    "connectionName": "shipmentSink",
+                    "connectionName": "mongoDBSink",
                     "db": "shipmentdb",
                     "coll": "shipped_orders",
                     "config": {"fullDocument": "whenAvailable"},
@@ -348,7 +349,7 @@ stream_processors = [
             {
                 "$merge": {
                     "into": {
-                        "connectionName": "orderHistorySink",
+                        "connectionName": "mongoDBSink",
                         "db": "orderhistorydb",
                         "coll": "order_history",
                     },
@@ -361,7 +362,7 @@ stream_processors = [
         "name": "delayedShipmentToOrderTrackingStreamProcessor",  # Name of your stream processor instance
         "options": {
             "dlq": {
-                "connectionName": "dlqSink",
+                "connectionName": "mongoDBSink",
                 "db": "dlqDb",
                 "coll": "dlqColl",
             }
@@ -369,7 +370,7 @@ stream_processors = [
         "pipeline": [
             {
                 "$source": {
-                    "connectionName": "shipmentSink",
+                    "connectionName": "mongoDBSink",
                     "db": "shipmentdb",
                     "coll": "delayed_orders",
                     "config": {"fullDocument": "whenAvailable"},
@@ -398,7 +399,7 @@ stream_processors = [
             {
                 "$merge": {
                     "into": {
-                        "connectionName": "orderHistorySink",
+                        "connectionName": "mongoDBSink",
                         "db": "orderhistorydb",
                         "coll": "order_history",
                     },
@@ -412,7 +413,7 @@ stream_processors = [
         "pipeline": [
             {
                 "$source": {
-                    "connectionName": "shoppingCartCappedCollectionEventSource",
+                    "connectionName": "mongoDBSink",
                     "db": "shoppingcartdb",
                     "coll": "incoming_shopping_cart_events",
                     "config": {"fullDocument": "whenAvailable"},
@@ -437,7 +438,7 @@ stream_processors = [
             {
                 "$merge": {
                     "into": {
-                        "connectionName": "shoppingCartSink",
+                        "connectionName": "mongoDBSink",
                         "db": "shoppingcartdb",
                         "coll": "shoppingcart",
                     },
@@ -470,7 +471,7 @@ stream_processors = [
             {
                 "$merge": {
                     "into": {
-                        "connectionName": "shoppingCartSink",
+                        "connectionName": "mongoDBSink",
                         "db": "shoppingcartdb",
                         "coll": "shoppingcart",
                     },
@@ -491,4 +492,8 @@ for processor in stream_processors:
         headers=headers,
         json=processor,
     )
+    if not (200 <= response.status_code < 300):
+        print(f"Error creating stream processor {processor['name']}:")
+        pprint.pprint(response.json())
+        sys.exit(1)
     pprint.pprint(response.json())

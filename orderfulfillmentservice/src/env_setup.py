@@ -106,7 +106,53 @@ def update_mongo_url_with_cluster(cluster_name):
         sys.exit(1)
 
 def set_connection_env_vars(cluster_name, connection_string, provider, region):
-    """Helper to update MONGO_URL, CLOUD_PROVIDER, and CLOUD_REGION from cluster info."""
+    """Helper to update MONGO_URL, CLOUD_PROVIDER, and CLOUD_REGION from cluster info, mapping to ASP region names."""
+    # ASP region mappings
+    aws_map = {
+        "AP_SOUTHEAST_2": "SYDNEY_AUS",
+        "AP_SOUTH_1": "MUMBAI_IND",
+        "EU_CENTRAL_1": "FRANKFURT_DEU",
+        "EU_WEST_1": "DUBLIN_IRL",
+        "EU_WEST_2": "LONDON_GBR",
+        "US_EAST_1": "VIRGINIA_USA",
+        "US_EAST_2": "OHIO_USA",
+        "US_WEST_2": "OREGON_USA",
+        "SA_EAST_1": "SAOPAULO_BRA",
+        "CA_CENTRAL_1": "MONTREAL_CAN",
+        "AP_NORTHEAST_1": "TOKYO_JPN",
+        "AP_SOUTHEAST_1": "SINGAPORE_SGP",
+    }
+    azure_map = {
+        "EASTUS": "eastus",
+        "WESTUS": "westus",
+        "EASTUS2": "eastus2",
+        "WESTEUROPE": "westeurope",
+    }
+    gcp_map = {
+        "US_CENTRAL1": "US_CENTRAL1",
+        "EUROPE_WEST1": "EUROPE_WEST1",
+        "US_EAST4": "US_EAST4",
+    }
+    asp_provider = provider
+    asp_region = region
+    if provider and region:
+        p = provider.strip().upper()
+        r = region.strip().upper()
+        if p == "AWS":
+            asp_provider = "AWS"
+            asp_region = aws_map.get(r)
+        elif p == "AZURE":
+            asp_provider = "AZURE"
+            asp_region = azure_map.get(r)
+        elif p == "GCP":
+            asp_provider = "GCP"
+            asp_region = gcp_map.get(r)
+        if not asp_region:
+            asp_provider = "AWS"
+            asp_region = "VIRGINIA_USA"
+    else:
+        asp_provider = "AWS"
+        asp_region = "VIRGINIA_USA"
     if connection_string:
         mongo_url = connection_string
         if mongo_url.startswith('mongodb+srv://'):
@@ -120,12 +166,10 @@ def set_connection_env_vars(cluster_name, connection_string, provider, region):
         mongo_url = mongo_url.split('?', 1)[0] + suffix
         update_env_file('MONGO_URL', mongo_url)
         os.environ['MONGO_URL'] = mongo_url
-    if provider:
-        update_env_file('CLOUD_PROVIDER', provider)
-        os.environ['CLOUD_PROVIDER'] = provider
-    if region:
-        update_env_file('CLOUD_REGION', region)
-        os.environ['CLOUD_REGION'] = region
+    update_env_file('CLOUD_PROVIDER', asp_provider)
+    os.environ['CLOUD_PROVIDER'] = asp_provider
+    update_env_file('CLOUD_REGION', asp_region)
+    os.environ['CLOUD_REGION'] = asp_region
 
 def set_env_var(var, value, env_vars):
     env_vars[var] = value

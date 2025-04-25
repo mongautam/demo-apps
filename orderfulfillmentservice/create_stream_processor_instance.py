@@ -1,4 +1,5 @@
 import pprint
+import sys
 from requests.auth import HTTPDigestAuth
 import requests
 import os
@@ -32,4 +33,17 @@ data = {
 response = requests.post(
     API_URL, auth=HTTPDigestAuth(PUBLIC_KEY, PRIVATE_KEY), headers=headers, json=data
 )
+if not (200 <= response.status_code < 300):
+    try:
+        error_json = response.json()
+        # Ignore if stream instance already exists
+        if response.status_code == 409 and error_json.get('detail', '').startswith('A Stream instance with the name'):
+            print("Stream processor instance already exists. Ignoring.")
+            sys.exit(0)
+        print("Error creating stream processor instance:")
+        pprint.pprint(error_json)
+    except Exception:
+        print("Error creating stream processor instance:")
+        print(response.text)
+    sys.exit(1)
 pprint.pprint(response.json())

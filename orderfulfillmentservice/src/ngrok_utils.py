@@ -134,7 +134,7 @@ def start_ngrok(env_vars=None, debug=False):
         
         if order_service_url or kafka_bootstrap_server:
             update_env_file(env_vars, order_service_url, kafka_bootstrap_server)
-            print(f"\nUpdated {ENV_FILE} with ngrok URLs.")
+            print(f"\nUpdated env file with ngrok URLs.")
         
         print("\nngrok is now running. Press Ctrl+C in this terminal to stop it.")
         process.wait()
