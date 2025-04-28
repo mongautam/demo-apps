@@ -31,7 +31,7 @@ First, make sure you have:
 1. In terminal 1: `./driver.py setup-ngrok` (run once to configure ngrok)
 2. In terminal 1: `./driver.py start-ngrok`
 3. In terminal 2: `./driver.py start-order-service`
-4. In terminal 3: `./driver.py setup-all && ./driver.py simulate-shopping`
+4. In terminal 3: `./driver.py setup-all && ./driver.py start-stream-processors && ./driver.py simulate-shopping`
 
 ### Detailed setup steps:
 
