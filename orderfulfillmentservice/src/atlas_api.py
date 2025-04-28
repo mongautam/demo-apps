@@ -15,16 +15,27 @@ def create_cluster(project_id, pub_key, pri_key):
     # Basic M0 cluster configuration
     cluster_config = {
         "name": DEFAULT_CLUSTER_NAME,
-        "providerSettings": {
-            "backingProviderName": "AWS",
-            "regionName": "US_EAST_1"
-        },
+        "clusterType": "REPLICASET",
+        "replicationSpecs": [
+            {
+              "regionConfigs": [
+                {
+                  "electableSpecs": {
+                    "instanceSize": "M0",
+                  },
+                  "backingProviderName": "AWS",
+                  "providerName": "TENANT",
+                  "regionName": "US_EAST_1"
+                }
+              ]
+            }
+        ],
         "terminationProtectionEnabled": False
     }
 
     # Create cluster
     response = requests.post(
-        f"{base_url}/groups/{project_id}/flexClusters",
+        f"{base_url}/groups/{project_id}/clusters",
         auth=HTTPDigestAuth(pub_key, pri_key),
         headers=headers,
         json=cluster_config,
@@ -42,7 +53,7 @@ def create_cluster(project_id, pub_key, pri_key):
     print("Waiting for cluster to be ready ", end='', flush=True)
     while time.time() < timeout:
         status_response = requests.get(
-            f"{base_url}/groups/{project_id}/flexClusters/{cluster_info['name']}",
+            f"{base_url}/groups/{project_id}/clusters/{cluster_info['name']}",
             auth=HTTPDigestAuth(pub_key, pri_key),
             headers=headers,
         )

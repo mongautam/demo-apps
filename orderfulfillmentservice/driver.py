@@ -43,13 +43,25 @@ def setup_all(env_vars=None):
     print("\nSetting up stream processors...")
     run_command([sys.executable, "create_stream_processors.py"])
     
-    print("\nSetup complete! You can now run the shopping cart simulator.")
+    print("\nSetup complete! You can now start the stream processors with:")
+    print("./driver.py start-stream-processors")
+    print("Then run the shopping cart simulator with:")
+    print("./driver.py simulate-shopping")
 
 def get_order_history(env_vars, order_id=None):
     """Get history for a specific order."""
-    if not order_id:
+    if order_id:
+        run_command([sys.executable, "get_order_history.py", order_id])
+    else:
         order_id = input("Enter Order ID: ")
-    run_command([sys.executable, "get_order_history.py", order_id])
+        run_command([sys.executable, "get_order_history.py", order_id])
+
+def start_stream_processors(env_vars=None, use_kafka=False):
+    """Start all stream processors."""
+    command = [sys.executable, "start_stream_processors.py"]
+    if use_kafka:
+        command.append("--kafka")
+    run_command(command)
 
 def initialize_registry():
     """Initialize the command registry with all available commands."""
@@ -76,6 +88,12 @@ def initialize_registry():
                      "Setup and Start Stream Processors", category="setup")
     registry.register("setup-all", setup_all, 
                      "Run All Setup Steps", category="setup")
+    registry.register("start-stream-processors", 
+                     lambda env: start_stream_processors(env, use_kafka=False), 
+                     "Start all stream processors", category="setup")
+    registry.register("start-stream-processors-kafka", 
+                     lambda env: start_stream_processors(env, use_kafka=True), 
+                     "Start all stream processors including Kafka", category="setup")
     
     # Simulation commands
     registry.register("simulate-shopping", 
@@ -88,7 +106,8 @@ def initialize_registry():
                      needs_kafka=True, category="simulation")
     
     # Utility commands
-    registry.register("get-order-history", get_order_history, 
+    registry.register("get-order-history", 
+                     lambda env, extra_args: get_order_history(env, order_id=extra_args if extra_args and len(extra_args) > 0 else None), 
                      "Retrieve Order History for an Order", 
                      category="utility")
     
@@ -103,16 +122,17 @@ def initialize_registry():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('command', nargs='?', help='Command to execute')
+    parser.add_argument('extra_args', nargs=argparse.REMAINDER, help='Additional arguments for the command')
     parser.add_argument('--debug', action='store_true', help='Print debug information for ngrok commands')
     args = parser.parse_args()
     cmd = args.command
+    extra_args = args.extra_args
     debug = args.debug
 
     env_vars = setup_environment()
     registry = initialize_registry()
 
     if cmd:
-        extra_args = sys.argv[2:] if len(sys.argv) > 2 else None
         cmd_obj = registry.get_command(cmd)
 
         if cmd in NGROK_COMMANDS:
