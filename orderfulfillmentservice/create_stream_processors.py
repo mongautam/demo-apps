@@ -30,7 +30,7 @@ for processor in stream_processors + [kafka_stream_processor]:
         json=processor,
     )
     if not (200 <= response.status_code < 300):
-        if response.status_code == 409 and response.json().get('errorCode') == 'STREAM_PROCESSOR_NAME_ALREADY_EXISTS':
+        if response.status_code == 409 and response.json().get('errorCode') == 'STREAM_PROCESSOR_ALREADY_EXISTS':
             print(f"Stream processor {processor['name']} already exists, skipping...")
             continue
         print(f"Error creating stream processor {processor['name']}:")
