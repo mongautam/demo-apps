@@ -223,7 +223,15 @@ def select_or_create_cluster(env_vars):
                 set_connection_env_vars(cluster_name, connection_string, provider, region)
                 return
             except Exception as e:
-                print(f"Error creating cluster: {e}")
+                if "USER_UNAUTHORIZED" in str(e):
+                    print("Please make sure the API key has the permission to create cluster or go ahead and manually create a cluster")
+                    cluster_name = input("Enter your cluster name: ").strip()
+                    if cluster_name:
+                        set_env_var('ATLAS_CLUSTER_NAME', cluster_name, env_vars)
+                        update_mongo_url_with_cluster(cluster_name)
+                        return
+                else:
+                    print(f"Error creating cluster: {e}")
         elif choice == 'n':
             clusters = list_all_clusters(
                 env_vars['ATLAS_PROJECT_ID'],
