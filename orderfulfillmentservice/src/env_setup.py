@@ -38,14 +38,23 @@ def setup_environment():
     """Set up the environment (env file, variables)."""
     if not Path(ENV_FILE).exists():
         if Path(ENV_TEMPLATE).exists():
-            print(f"Copying {ENV_TEMPLATE} to {ENV_FILE} with empty values...")
+            print(f"Copying {ENV_TEMPLATE} to {ENV_FILE} with default values...")
             with open(ENV_TEMPLATE) as src, open(ENV_FILE, 'w') as dst:
                 for line in src:
                     if line.strip() == '' or line.strip().startswith('#'):
                         dst.write(line)
                     else:
                         var = line.split('=')[0].strip()
-                        dst.write(f'{var}=""\n')
+                        if var == "STREAM_PROCESSOR_INSTANCE_NAME":
+                            dst.write(f'{var}="fulfillmentServiceStreamProcessorInstance"\n')
+                        elif var == "KAFKA_SHOPPING_CART_TOPIC":
+                            dst.write(f'{var}="shopping-cart-events"\n')
+                        elif var == "SHOPPING_CART_DB_NAME":
+                            dst.write(f'{var}="shoppingcartdb"\n')
+                        elif var == "SHOPPING_CART_COLLECTION_NAME":
+                            dst.write(f'{var}="incoming_shopping_cart_events"\n')
+                        else:
+                            dst.write(f'{var}=""\n')
         else:
             print(f"Missing both {ENV_FILE} and {ENV_TEMPLATE}. Please provide one.")
             sys.exit(1)

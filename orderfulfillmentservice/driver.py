@@ -73,7 +73,7 @@ def initialize_registry():
     registry.register("start-ngrok", start_ngrok, 
                      "Start ngrok tunnels", category="setup")
     registry.register("start-order-service", start_order_service, 
-                     "Start Order Processing Service", category="setup")
+                     "Start Order Processing Service", category="setup", needs_kafka=False)
     registry.register("setup-database", 
                      lambda env: run_command([sys.executable, "create_db_collections.py"]), 
                      "Setup Database and Collections", category="setup")

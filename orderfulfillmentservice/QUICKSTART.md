@@ -22,9 +22,26 @@ The system uses an event-driven architecture where:
 
 First, make sure you have:
 
-1. Created and activated a Python virtual environment (recommended)
-2. Installed the required dependencies: `pip install -r requirements.txt`
-3. Configured ngrok (see the README.md for details)
+1. Clone this repository:
+   ```sh
+    git clone [https://github.com/mongautam/demo-apps.git](https://github.com/mongautam/demo-apps.git)
+    cd demo-apps/atlas-stream-processing/order-fulfillment-demo # Adjust path as needed
+   ```
+
+2. Create and activate a Python virtual environment:
+   ```sh
+   python3 -m venv venv
+   source venv/bin/activate  # On macOS/Linux
+   # OR
+   venv\Scripts\activate     # On Windows
+   ```
+
+3. Install the required dependencies:
+   ```sh
+   pip install -r requirements.txt
+   ```
+
+4. Configured ngrok (see the README.md for details)
 
 ### Quickest path to running the demo:
 
