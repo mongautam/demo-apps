@@ -100,9 +100,9 @@ def initialize_registry():
                      lambda env: simulate_shopping(env, use_kafka=False), 
                      "Simulate Customer Shopping Activity", 
                      needs_kafka=False, category="simulation")
-    registry.register("simulate-shopping-alt", 
+    registry.register("simulate-shopping-kafka", 
                      lambda env: simulate_shopping(env, use_kafka=True), 
-                     "Simulate Customer Shopping (Alt Method)", 
+                     "Simulate Customer Shopping (via Kafka)", 
                      needs_kafka=True, category="simulation")
     
     # Utility commands
@@ -110,12 +110,6 @@ def initialize_registry():
                      lambda env, extra_args: get_order_history(env, order_id=extra_args if extra_args and len(extra_args) > 0 else None), 
                      "Retrieve Order History for an Order", 
                      category="utility")
-    
-    # Add aliases for backward compatibility
-    registry.add_alias("run-mongodb-demo", "simulate-shopping")
-    registry.add_alias("run-kafka-demo", "simulate-shopping-alt")
-    registry.add_alias("event-generator-mongodb", "simulate-shopping")
-    registry.add_alias("event-generator-kafka", "simulate-shopping-alt")
     
     return registry
 

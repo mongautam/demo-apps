@@ -126,8 +126,8 @@ Follow these steps to run the demo using driver.py:
 
    ```sh
    ./driver.py simulate-shopping
-   # Or for the alternate method (requires additional configuration):
-   # ./driver.py simulate-shopping-alt
+   # Or for the kakfa simulator (requires additional configuration):
+   # ./driver.py simulate-shopping-kafka
    ```
 
    h. Retrieve order history for a specific order ID:

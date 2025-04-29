@@ -19,11 +19,7 @@ headers = {
     "Content-Type": "application/json",
 }
 
-# Check if Kafka flag is passed
-use_kafka = "--kafka" in sys.argv
-
-# Start each stream processor and print the response
-for processor in stream_processors:
+def start_processor(processor):
     print(f"\nStarting stream processor: {processor['name']}")
     response = requests.post(
         f"https://cloud.mongodb.com/api/atlas/v2/groups/{PROJECT_ID}/streams/{STREAM_INSTANCE_NAME}/processor/{processor['name']}:start",
@@ -31,20 +27,22 @@ for processor in stream_processors:
         headers=headers
     )
     if not (200 <= response.status_code < 300):
+        resp_json = response.json()
+        if "already been started" in str(resp_json):
+            print(f"Stream processor {processor['name']} is already running")
+            return True
         print(f"Error starting stream processor {processor['name']}:")
-        pprint.pprint(response.json())
-        sys.exit(1)
+        pprint.pprint(resp_json)
+        return False
     pprint.pprint(response.json())
+    return True
+
+use_kafka = "--kafka" in sys.argv
 
 if use_kafka:
-    print(f"\nStarting Kafka stream processor: {kafka_stream_processor['name']}")
-    response = requests.post(
-        f"https://cloud.mongodb.com/api/atlas/v2/groups/{PROJECT_ID}/streams/{STREAM_INSTANCE_NAME}/processor/{kafka_stream_processor['name']}:start",
-        auth=HTTPDigestAuth(PUBLIC_KEY, PRIVATE_KEY),
-        headers=headers
-    )
-    if not (200 <= response.status_code < 300):
-        print(f"Error starting Kafka stream processor {kafka_stream_processor['name']}:")
-        pprint.pprint(response.json())
+    if not start_processor(kafka_stream_processor):
         sys.exit(1)
-    pprint.pprint(response.json())
+else:
+    for processor in stream_processors:
+        if not start_processor(processor):
+            sys.exit(1)
