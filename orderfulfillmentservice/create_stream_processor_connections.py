@@ -69,6 +69,9 @@ for connection in connections:
         json=connection,
     )
     if not (200 <= response.status_code < 300):
+        if response.status_code == 409 and response.json().get('errorCode') == 'STREAM_CONNECTION_NAME_ALREADY_EXISTS':
+            print(f"Connection {connection['name']} already exists, skipping...")
+            continue
         print(f"Error creating connection {connection['name']}:")
         pprint.pprint(response.json())
         sys.exit(1)
