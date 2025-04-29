@@ -2,15 +2,17 @@
 
 ## Table of Contents
 
-* [Overview](#overview)
-* [Key Features](#key-features)
-* [Architecture](#architecture)
-* [Prerequisites](#prerequisites)
-* [Installation](#installation)
-* [Usage](#usage)
-* [Appendix](#appendix)
-    * [A. Setting Up `ngrok` for Multiple Local Services](#a-setting-up-ngrok-for-multiple-local-services)
-    * [B. Configuring Local Kafka for `ngrok` and ASP Compatibility](#b-configuring-local-kafka-for-ngrok-and-asp-compatibility)
+- [Real-time Order Fulfillment Demo with MongoDB Atlas Stream Processor](#real-time-order-fulfillment-demo-with-mongodb-atlas-stream-processor)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Key Features](#key-features)
+  - [Architecture](#architecture)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Appendix](#appendix)
+    - [A. Setting Up `ngrok` for Multiple Local Services](#a-setting-up-ngrok-for-multiple-local-services)
+    - [B. Configuring Local Kafka for `ngrok` and ASP Compatibility](#b-configuring-local-kafka-for-ngrok-and-asp-compatibility)
 
 ## Overview
 

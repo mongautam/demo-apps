@@ -1,4 +1,5 @@
 import pprint
+import sys
 from requests.auth import HTTPDigestAuth
 import requests
 import os
@@ -15,6 +16,7 @@ ORDER_SERVICE_URL = os.environ["ORDER_SERVICE_URL"]
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 KAFKA_USERNAME = os.getenv("KAFKA_USERNAME", "admin")
 KAFKA_PASSWORD = os.getenv("KAFKA_PASSWORD", "admin")
+ATLAS_CLUSTER_NAME = os.environ["ATLAS_CLUSTER_NAME"]
 
 API_URL = f"https://cloud.mongodb.com/api/atlas/v2/groups/{PROJECT_ID}/streams/{STREAM_INSTANCE_NAME}/connections"
 
@@ -31,70 +33,16 @@ send_headers = {
 # Define all connections in an array
 connections = [
     {
-        "name": "shoppingCartSource",
+        "name": "mongoDBSink",
         "type": "Cluster",
-        "clusterName": "Cluster0",
+        "clusterName": ATLAS_CLUSTER_NAME,
         "dbRoleToExecute": {"role": "atlasAdmin", "type": "BUILT_IN"},
     },
     {
-        "name": "shoppingCartSink",
-        "type": "Cluster",
-        "clusterName": "Cluster0",
-        "dbRoleToExecute": {"role": "atlasAdmin", "type": "BUILT_IN"},
-    },
-    {
-        "name": "orderSink",
-        "type": "Cluster",
-        "clusterName": "Cluster0",
-        "dbRoleToExecute": {"role": "atlasAdmin", "type": "BUILT_IN"},
-    },
-    {
-        "name": "dlqSink",
-        "type": "Cluster",
-        "clusterName": "Cluster0",
-        "dbRoleToExecute": {"role": "atlasAdmin", "type": "BUILT_IN"},
-    },
-    {
-        "name": "orderValidationService",
+        "name": "flaskService",
         "type": "Https",
         "headers": send_headers,
         "url": ORDER_SERVICE_URL,
-    },
-    {
-        "name": "validatedOrderSink",
-        "type": "Cluster",
-        "clusterName": "Cluster0",
-        "dbRoleToExecute": {"role": "atlasAdmin", "type": "BUILT_IN"},
-    },
-    {
-        "name": "invalidOrderSink",
-        "type": "Cluster",
-        "clusterName": "Cluster0",
-        "dbRoleToExecute": {"role": "atlasAdmin", "type": "BUILT_IN"},
-    },
-    {
-        "name": "shipmentSink",
-        "type": "Cluster",
-        "clusterName": "Cluster0",
-        "dbRoleToExecute": {"role": "atlasAdmin", "type": "BUILT_IN"},
-    },
-    {
-        "name": "orderShipmentService",
-        "type": "Https",
-        "headers": send_headers,
-        "url": ORDER_SERVICE_URL,
-    },
-    {
-        "name": "orderHistorySink",
-        "type": "Cluster",
-        "clusterName": "Cluster0",
-        "dbRoleToExecute": {"role": "atlasAdmin", "type": "BUILT_IN"},
-    },
-    {
-        "name": "shoppingCartCappedCollectionEventSource",
-        "type": "Cluster",
-        "clusterName": "Cluster0",
-        "dbRoleToExecute": {"role": "atlasAdmin", "type": "BUILT_IN"},
     },
     {
         "name": "shoppingCartKafkaEventSource",
@@ -107,9 +55,7 @@ connections = [
         },
         "security": {
             "protocol": "SASL_PLAINTEXT",
-        },
-        "clusterName": "Cluster0",
-        "dbRoleToExecute": {"role": "atlasAdmin", "type": "BUILT_IN"},
+        }
     },
 ]
 
@@ -122,4 +68,11 @@ for connection in connections:
         headers=headers,
         json=connection,
     )
+    if not (200 <= response.status_code < 300):
+        if response.status_code == 409 and response.json().get('errorCode') == 'STREAM_CONNECTION_NAME_ALREADY_EXISTS':
+            print(f"Connection {connection['name']} already exists, skipping...")
+            continue
+        print(f"Error creating connection {connection['name']}:")
+        pprint.pprint(response.json())
+        sys.exit(1)
     pprint.pprint(response.json())
