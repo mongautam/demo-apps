@@ -29,7 +29,7 @@ def simulate_shopping(env_vars, use_kafka=False):
     print_simulation_info()
     run_command([sys.executable, "shopping_cart_event_generator.py", "--destination", destination])
 
-def setup_all():
+def setup_all(env_vars=None):
     """Run all setup steps in sequence."""
     print("Setting up database and collections...")
     run_command([sys.executable, "create_db_collections.py"])
@@ -48,13 +48,12 @@ def setup_all():
     print("Then run the shopping cart simulator with:")
     print("./driver.py simulate-shopping")
 
-def get_order_history(order_id=None):
+def get_order_history(env_vars=None, order_id=None):
     """Get history for a specific order."""
     if order_id:
         run_command([sys.executable, "get_order_history.py", order_id])
     else:
-        order_id = input("Enter Order ID: ")
-        run_command([sys.executable, "get_order_history.py", order_id])
+        run_command([sys.executable, "get_order_history.py"])
 
 def start_stream_processors(use_kafka=False):
     """Start all stream processors."""
@@ -75,24 +74,24 @@ def initialize_registry():
     registry.register("start-order-service", start_order_service, 
                      "Start Order Processing Service", category="setup", needs_kafka=False)
     registry.register("setup-database", 
-                     lambda env: run_command([sys.executable, "create_db_collections.py"]), 
+                     lambda: run_command([sys.executable, "create_db_collections.py"]), 
                      "Setup Database and Collections", category="setup")
     registry.register("create-stream-processor-instance", 
-                     lambda env: run_command([sys.executable, "create_stream_processor_instance.py"]), 
+                     lambda: run_command([sys.executable, "create_stream_processor_instance.py"]), 
                      "Create Stream Processor Instance", category="setup")
     registry.register("setup-stream-processor-connections", 
-                     lambda env: run_command([sys.executable, "create_stream_processor_connections.py"]), 
+                     lambda : run_command([sys.executable, "create_stream_processor_connections.py"]), 
                      "Setup Stream Processor Connections", category="setup")
     registry.register("setup-stream-processors", 
-                     lambda env: run_command([sys.executable, "create_stream_processors.py"]), 
+                     lambda: run_command([sys.executable, "create_stream_processors.py"]), 
                      "Setup and Start Stream Processors", category="setup")
     registry.register("setup-all", setup_all, 
                      "Run All Setup Steps", category="setup")
     registry.register("start-stream-processors", 
-                     start_stream_processors(use_kafka=False), 
+                     lambda: start_stream_processors(use_kafka=False), 
                      "Start all stream processors", category="setup")
     registry.register("start-stream-processors-kafka", 
-                     start_stream_processors(use_kafka=True), 
+                     lambda: start_stream_processors(use_kafka=True), 
                      "Start all stream processors including Kafka", category="setup")
     
     # Simulation commands
@@ -107,7 +106,7 @@ def initialize_registry():
     
     # Utility commands
     registry.register("get-order-history", 
-                     lambda extra_args: get_order_history(order_id=extra_args if extra_args and len(extra_args) > 0 else None), 
+                     lambda env, extra_args=None: get_order_history(env, order_id=extra_args[0] if extra_args else None), 
                      "Retrieve Order History for an Order", 
                      category="utility")
     
