@@ -74,24 +74,24 @@ def initialize_registry():
     registry.register("start-order-service", start_order_service, 
                      "Start Order Processing Service", category="setup", needs_kafka=False)
     registry.register("setup-database", 
-                     lambda: run_command([sys.executable, "create_db_collections.py"]), 
+                     lambda env: run_command([sys.executable, "create_db_collections.py"]), 
                      "Setup Database and Collections", category="setup")
     registry.register("create-stream-processor-instance", 
-                     lambda: run_command([sys.executable, "create_stream_processor_instance.py"]), 
+                     lambda env: run_command([sys.executable, "create_stream_processor_instance.py"]), 
                      "Create Stream Processor Instance", category="setup")
     registry.register("setup-stream-processor-connections", 
-                     lambda : run_command([sys.executable, "create_stream_processor_connections.py"]), 
+                     lambda env: run_command([sys.executable, "create_stream_processor_connections.py"]), 
                      "Setup Stream Processor Connections", category="setup")
     registry.register("setup-stream-processors", 
-                     lambda: run_command([sys.executable, "create_stream_processors.py"]), 
+                     lambda env: run_command([sys.executable, "create_stream_processors.py"]), 
                      "Setup and Start Stream Processors", category="setup")
     registry.register("setup-all", setup_all, 
                      "Run All Setup Steps", category="setup")
     registry.register("start-stream-processors", 
-                     lambda: start_stream_processors(use_kafka=False), 
+                     lambda env: start_stream_processors(use_kafka=False), 
                      "Start all stream processors", category="setup")
     registry.register("start-stream-processors-kafka", 
-                     lambda: start_stream_processors(use_kafka=True), 
+                     lambda env: start_stream_processors(use_kafka=True), 
                      "Start all stream processors including Kafka", category="setup")
     
     # Simulation commands
