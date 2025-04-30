@@ -20,8 +20,8 @@ ENV_VARS = {
     "ATLAS_STREAM_PROCESSOR_URL": {"desc": "URL for Atlas Stream Processing endpoint", "prompt": False},
     "ORDER_SERVICE_URL": {"desc": "Order service endpoint", "prompt": False},
     "KAFKA_BOOTSTRAP_SERVERS": {"desc": "Kafka bootstrap servers", "prompt": False},
-    "KAFKA_USERNAME": {"desc": "Kafka username (if SASL/PLAIN auth is used)", "prompt": True},
-    "KAFKA_PASSWORD": {"desc": "Kafka password", "prompt": True},
+    "KAFKA_USERNAME": {"desc": "Kafka username (if SASL/PLAIN auth is used)", "prompt": False},
+    "KAFKA_PASSWORD": {"desc": "Kafka password", "prompt": False},
     "KAFKA_SHOPPING_CART_TOPIC": {"desc": "Kafka topic for shopping cart events", "prompt": False},
     "SHOPPING_CART_DB_NAME": {"desc": "Shopping cart MongoDB database name", "prompt": False},
     "SHOPPING_CART_COLLECTION_NAME": {"desc": "Shopping cart MongoDB collection name", "prompt": False},
@@ -270,14 +270,22 @@ def select_or_create_cluster(env_vars):
         else:
             print("Please enter 'y' or 'n'.")
 
-def prompt_for_env_vars(env_vars, only_kafka=False, only_vars=None):
+def prompt_for_env_vars(env_vars, only_kafka=False):
     """Prompt user for required environment variables and save to .env file."""
+    if only_kafka:
+        # Only prompt for Kafka variables
+        for var in KAFKA_ENV_KEYS:
+            if var not in env_vars or not env_vars[var] or env_vars[var].strip() == "":
+                prompt_and_set_env_var(var, ENV_VARS[var]["desc"], env_vars)
+        return
+
     # Only prompt for vars with prompt=True
     prompt_vars = [k for k, v in ENV_VARS.items() if v.get("prompt")]
     # Always prompt for API keys and project id first
     for var in ["ATLAS_API_PUBLIC_KEY", "ATLAS_API_PRIVATE_KEY", "ATLAS_PROJECT_ID"]:
         if not env_vars.get(var):
             prompt_and_set_env_var(var, ENV_VARS[var]['desc'], env_vars)
+
     # Cluster name logic (populate ATLAS_CLUSTER_NAME and MONGO_URL)
     cluster_name = env_vars.get('ATLAS_CLUSTER_NAME')
     if not cluster_name:
@@ -285,6 +293,7 @@ def prompt_for_env_vars(env_vars, only_kafka=False, only_vars=None):
     else:
         # If already populated, always update MONGO_URL
         update_mongo_url_with_cluster(cluster_name)
+
     # Prompt for the rest of the required vars (excluding those already handled)
     for var in prompt_vars:
         if var in ["ATLAS_API_PUBLIC_KEY", "ATLAS_API_PRIVATE_KEY", "ATLAS_PROJECT_ID"]:

@@ -29,7 +29,7 @@ def simulate_shopping(env_vars, use_kafka=False):
     print_simulation_info()
     run_command([sys.executable, "shopping_cart_event_generator.py", "--destination", destination])
 
-def setup_all(env_vars=None):
+def setup_all():
     """Run all setup steps in sequence."""
     print("Setting up database and collections...")
     run_command([sys.executable, "create_db_collections.py"])
@@ -48,7 +48,7 @@ def setup_all(env_vars=None):
     print("Then run the shopping cart simulator with:")
     print("./driver.py simulate-shopping")
 
-def get_order_history(env_vars, order_id=None):
+def get_order_history(order_id=None):
     """Get history for a specific order."""
     if order_id:
         run_command([sys.executable, "get_order_history.py", order_id])
@@ -56,7 +56,7 @@ def get_order_history(env_vars, order_id=None):
         order_id = input("Enter Order ID: ")
         run_command([sys.executable, "get_order_history.py", order_id])
 
-def start_stream_processors(env_vars=None, use_kafka=False):
+def start_stream_processors(use_kafka=False):
     """Start all stream processors."""
     command = [sys.executable, "start_stream_processors.py"]
     if use_kafka:
@@ -89,10 +89,10 @@ def initialize_registry():
     registry.register("setup-all", setup_all, 
                      "Run All Setup Steps", category="setup")
     registry.register("start-stream-processors", 
-                     lambda env: start_stream_processors(env, use_kafka=False), 
+                     start_stream_processors(use_kafka=False), 
                      "Start all stream processors", category="setup")
     registry.register("start-stream-processors-kafka", 
-                     lambda env: start_stream_processors(env, use_kafka=True), 
+                     start_stream_processors(use_kafka=True), 
                      "Start all stream processors including Kafka", category="setup")
     
     # Simulation commands
@@ -107,7 +107,7 @@ def initialize_registry():
     
     # Utility commands
     registry.register("get-order-history", 
-                     lambda env, extra_args: get_order_history(env, order_id=extra_args if extra_args and len(extra_args) > 0 else None), 
+                     lambda extra_args: get_order_history(order_id=extra_args if extra_args and len(extra_args) > 0 else None), 
                      "Retrieve Order History for an Order", 
                      category="utility")
     
