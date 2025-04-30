@@ -16,7 +16,6 @@ load_dotenv()
 app = Flask(__name__)
 
 MONGO_URL = os.getenv("MONGO_URL")
-
 MONGO_USER = os.getenv("MONGO_USER")
 MONGO_PASS = os.getenv("MONGO_PASS")
 
@@ -74,7 +73,11 @@ def getOrderHistory():
     order_id = request.args.get("orderId")
     pprint.pprint(f"orderId = {order_id}")
     if not order_id:
-        return jsonify({"error": "Missing orderId parameter"}), 400
+        order = order_history_collection.find_one()
+        if not order:
+            return jsonify({"error": "No orders found"}), 404
+        order["_id"] = str(order["_id"])
+        return jsonify(order)
 
     order = order_history_collection.find_one({"_id": order_id})
     if not order:
