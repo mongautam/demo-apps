@@ -53,6 +53,9 @@ def setup_environment():
                             dst.write(f'{var}="shoppingcartdb"\n')
                         elif var == "SHOPPING_CART_COLLECTION_NAME":
                             dst.write(f'{var}="incoming_shopping_cart_events"\n')
+                        elif var == "KAFKA_USERNAME" or var == "KAFKA_PASSWORD":
+                            # Copy over the actual value from the env template
+                            dst.write(line)
                         else:
                             dst.write(f'{var}=""\n')
         else:
