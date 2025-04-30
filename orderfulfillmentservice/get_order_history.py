@@ -9,12 +9,18 @@ def main():
     load_dotenv()
 
     parser = argparse.ArgumentParser(description="Get order history by order ID")
-    parser.add_argument("order_id", help="The order ID to look up")
+    parser.add_argument("order_id", nargs="?", help="The order ID to look up (optional)")
     args = parser.parse_args()
 
+    order_id = args.order_id
+
     ORDER_SERVICE_URL = os.environ["ORDER_SERVICE_URL"]
+    if order_id:
+        url = f"{ORDER_SERVICE_URL}/getOrderHistory?orderId={order_id}"
+    else:
+        url = f"{ORDER_SERVICE_URL}/getOrderHistory"
     response = requests.get(
-        f"{ORDER_SERVICE_URL}/getOrderHistory?orderId={args.order_id}",
+        url,
         headers={
             "ngrok-skip-browser-warning": "true",
         },
