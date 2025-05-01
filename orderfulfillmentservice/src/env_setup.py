@@ -53,9 +53,6 @@ def setup_environment():
                             dst.write(f'{var}="shoppingcartdb"\n')
                         elif var == "SHOPPING_CART_COLLECTION_NAME":
                             dst.write(f'{var}="incoming_shopping_cart_events"\n')
-                        elif var == "KAFKA_USERNAME" or var == "KAFKA_PASSWORD":
-                            # Copy over the actual value from the env template
-                            dst.write(line)
                         else:
                             dst.write(f'{var}=""\n')
         else:
@@ -194,7 +191,14 @@ def prompt_and_set_env_var(var, desc, env_vars):
         print(f"\nMissing value for {var}.")
         if desc:
             print(f"Hint: {desc}")
+        if var in ["KAFKA_USERNAME", "KAFKA_PASSWORD"]:
+            print("If you do not want to use Kafka, just hit enter and we will fill in 'admin' and 'admin-secret'.")
+            default = "admin" if var == "KAFKA_USERNAME" else "admin-secret"
+        else:
+            default = None
         value = input(f"Enter value for {var}: ").strip()
+        if not value and var in ["KAFKA_USERNAME", "KAFKA_PASSWORD"]:
+            value = default
         if value and not value.isspace():
             set_env_var(var, value, env_vars)
             print(f"Updated {ENV_FILE} with new value for {var}")
@@ -281,6 +285,11 @@ def prompt_for_env_vars(env_vars, only_kafka=False):
             if var not in env_vars or not env_vars[var] or env_vars[var].strip() == "":
                 prompt_and_set_env_var(var, ENV_VARS[var]["desc"], env_vars)
         return
+
+    # Always prompt for Kafka username and password if missing
+    for var in ["KAFKA_USERNAME", "KAFKA_PASSWORD"]:
+        if var not in env_vars or not env_vars[var] or env_vars[var].strip() == "":
+            prompt_and_set_env_var(var, ENV_VARS[var]["desc"], env_vars)
 
     # Only prompt for vars with prompt=True
     prompt_vars = [k for k, v in ENV_VARS.items() if v.get("prompt")]
