@@ -142,6 +142,7 @@ pip install -r requirements.txt
 ./driver.py simulate-shopping
 # Or for the kakfa simulator (requires additional configuration):
 # Check the Appendex in README.md for instructions on Kafka setup
+# Start the shoppingCartEventsFromKafkaStreamProcessor from Atlas UI if it is stopped. 
 # ./driver.py simulate-shopping-kafka
 ```
 
