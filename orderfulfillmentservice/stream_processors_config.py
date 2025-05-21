@@ -40,6 +40,13 @@ stream_processors = [
     },
     {
         "name": "orderValidationStreamProcessor",
+        "options": {
+            "dlq": {
+                "connectionName": "mongoDBSink",
+                "db": "dlqDb",
+                "coll": "dlqColl",
+            }
+        },
         "pipeline": [
             {
                 "$source": {
